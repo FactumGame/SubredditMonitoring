@@ -1,0 +1,27 @@
+{
+  "name": "cryptoanalysis",
+  "version": "1.0.0",
+  "description": "Crypto Currency Data Viz",
+  "main": "index.js",
+  "engines": {
+    "node": "^8.4.0",
+    "npm": "^5.3"
+  },
+  "dependencies": {
+    "async": "^2.6.0",
+    "cheerio": "^0.22.0",
+    "events": "1.1.1",
+    "express": "^4.15.4",
+    "js-combinatorics": "^0.5.3",
+    "jsonic": "^0.3.0",
+    "node-schedule": "^1.2.5",
+    "pug": "^2.0.0-rc.4",
+    "request": "^2.83.0",
+    "sqlite3": "^3.1.12"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Bryce Morrow",
+  "license": "ISC"
+}
