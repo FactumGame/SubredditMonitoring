@@ -9,9 +9,9 @@ const initialize = () => {
     app.listen(port);
 
     if (port === devPort) {
-        console.log(`Application deployed locally on port: ${port}`);
+        console.log(`Application deployed locally on port ${port} at time ${(new Date()).toString()}`);
     } else {
-        console.log("Application deployed to Heroku");
+        console.log("Application deployed to Heroku at time: " + (new Date()).toString());
     }
 
     return app;

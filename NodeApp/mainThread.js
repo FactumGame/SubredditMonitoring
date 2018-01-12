@@ -1,6 +1,6 @@
 const run = () => {
 
-    var fromScratchModeEnabled = false;
+    var fromScratchModeEnabled = true;
 
     //Run Server Setup bind to port
     const server = require('./ExpressServer/server'); //IMPORTANT: check this module to comment our module path for deployment
@@ -17,10 +17,6 @@ const run = () => {
     const scraperModule = require('./WebScraper/webscraper');
     const redditMetricsScraper = scraperModule.getScraper('redditmetrics');
     redditMetricsScraper.run();
-
-    //Setup API query handlers
-    //const api = require('./API/api');
-    //api.setup(app, db);
 
     //Schedule web scraping task
     const schedule = require("node-schedule");
