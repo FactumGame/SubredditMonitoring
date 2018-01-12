@@ -12,7 +12,7 @@ var alphabet = 'abcdefghijklmnopqrstuvwxyz'.split(''),
             "orderedKeys": ['Date', 'Count'],
             "dataTableSchema": '(Date REAL, Count REAL, UNIQUE(Date, Count))',
             "dataTableInsertString": '(?,?)',
-            "numIdentifiers": 4, //we are currently scraping from 4 subreddits
+            "numIdentifiers": 135, //we are currently scraping from 135 subreddits
             "alphabet": [],
             "mappings": {}
         }

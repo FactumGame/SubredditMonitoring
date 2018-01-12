@@ -105,7 +105,7 @@ const scheduleWebScraper = (eventEmitter, db) => {
                 "growthYesterday": (d[mp].Count - d[sp].Count)
             });
         });
-        var viableGrowthData = []
+        var viableGrowthData = [];
         for (var i = 0; i < subredditGrowthData.length; i++) {
             var curr = subredditGrowthData[i];
             if (curr.growthRate !== false) {
@@ -116,11 +116,25 @@ const scheduleWebScraper = (eventEmitter, db) => {
             }
         }
         viableGrowthData = _.sortBy(viableGrowthData, elem => elem.growthRate).reverse().splice(0, numCoinsReported);
-
-        //Generate and send text msgs to subscribed users
-        var txtMsg = generateTextMessage(viableGrowthData);
-        var sendToNums = ['12392334556', '17173294188'];
-        sendToNums.forEach((num) => {
+        if (viableGrowthData.length > 0) {
+            //If we have data to report on, send messages to subscribers
+            //Generate and send text msgs to subscribed users
+            var txtMsg = generateTextMessage(viableGrowthData);
+            var sendToNums = ['12392334556', '17173294188'];
+            sendToNums.forEach((num) => {
+                nexmo.message.sendSms(
+                    '12132055816', num, txtMsg,
+                    (err, responseData) => {
+                        if (err) {
+                            console.log(err);
+                        } else {
+                            console.dir(responseData);
+                        }
+                    }
+                );
+            });
+        } else {
+            var txtMsg = "Sorry. We do not have enough data to analyze growth trends. We will continue sending messages at 11:00 pm every night until we do!";
             nexmo.message.sendSms(
                 '12132055816', num, txtMsg,
                 (err, responseData) => {
@@ -131,7 +145,7 @@ const scheduleWebScraper = (eventEmitter, db) => {
                     }
                 }
             );
-        });
+        }
 
     };
 
