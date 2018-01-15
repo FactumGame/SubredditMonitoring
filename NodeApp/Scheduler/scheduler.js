@@ -116,12 +116,21 @@ const scheduleWebScraper = (eventEmitter, db) => {
             }
         }
         viableGrowthData = _.sortBy(viableGrowthData, elem => elem.growthRate).reverse().splice(0, numCoinsReported);
+
+        var txtMsg = '';
+        var sendToNums = ['12392334556', '17173294188'];
+
         if (viableGrowthData.length > 0) {
             //If we have data to report on, send messages to subscribers
             //Generate and send text msgs to subscribed users
-            var txtMsg = generateTextMessage(viableGrowthData);
-            var sendToNums = ['12392334556', '17173294188'];
-            sendToNums.forEach((num) => {
+            txtMsg = generateTextMessage(viableGrowthData);
+        } else {
+            txtMsg = "Sorry. We do not have enough data to analyze growth trends. We will continue sending messages at 11:00 pm every night until we do!";
+        }
+
+        var timeoutMultiplier = 0; //for api call time limits
+        sendToNums.forEach((num) => {
+            setTimeout(() => {
                 nexmo.message.sendSms(
                     '12132055816', num, txtMsg,
                     (err, responseData) => {
@@ -132,25 +141,13 @@ const scheduleWebScraper = (eventEmitter, db) => {
                         }
                     }
                 );
-            });
-        } else {
-            var txtMsg = "Sorry. We do not have enough data to analyze growth trends. We will continue sending messages at 11:00 pm every night until we do!";
-            nexmo.message.sendSms(
-                '12132055816', num, txtMsg,
-                (err, responseData) => {
-                    if (err) {
-                        console.log(err);
-                    } else {
-                        console.dir(responseData);
-                    }
-                }
-            );
-        }
+            }, timeoutMultiplier++ * 1000 * 2);
+        });
 
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('30 24 20 * * *', function() {
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
