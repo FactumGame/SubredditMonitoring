@@ -97,7 +97,8 @@ const run = (data, dataSource) => {
                             });
                             //After we complete our bulk loading, we call the finish callback.
                             bulkLoadRows.finalize(() => {
-                                console.log(`We have entered data for ${pKey} in mapped table ${tableName} AT: ${[epoch, new Date(epoch).toString()]}`);
+                                var epoch = data[0].Date;
+                                console.log(`We have entered data for ${pKey} in mapped table ${tableName} AT: ${(new Date(epoch)).toString()}`);
                                 resolve(data); //will either resolve or error will be thrown so no explicit call to reject
                             });
                         });
