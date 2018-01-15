@@ -147,7 +147,7 @@ const scheduleWebScraper = (eventEmitter, db) => {
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('30 24 20 * * *', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
