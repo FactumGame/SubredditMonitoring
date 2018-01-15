@@ -1,6 +1,8 @@
 const run = () => {
 
-    var fromScratchModeEnabled = true;
+    //set to false on deploy due to auto dyno restarts and db persistence
+    var fromScratchModeEnabled  = false,
+        runScraperOnStartup     = false;
 
     //Run Server Setup bind to port
     const server = require('./ExpressServer/server'); //IMPORTANT: check this module to comment our module path for deployment
@@ -9,6 +11,7 @@ const run = () => {
     //Setup EventEmitter
     const events = require('events');
     const eventEmitter = new events.EventEmitter();
+
     //Setup Database
     const dbModule = require('./Database/database');
     const db = dbModule.setup(fromScratchModeEnabled, eventEmitter);
@@ -16,7 +19,13 @@ const run = () => {
     //Setup and Run Data Scrapers
     const scraperModule = require('./WebScraper/webscraper');
     const redditMetricsScraper = scraperModule.getScraper('redditmetrics');
-    redditMetricsScraper.run();
+    if (runScraperOnStartup) {
+        redditMetricsScraper.run();
+    }
+
+    //Setup API query handlers
+    const api = require('./API/api');
+    api.setup(app, db);
 
     //Schedule web scraping task
     const schedule = require("node-schedule");

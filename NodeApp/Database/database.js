@@ -9,7 +9,8 @@ appSettingsSchema   = '(property TEXT, value TEXT, UNIQUE(property, value))',
 subredditsSchema    = '(pKey TEXT, tableName TEXT, UNIQUE(pKey))',
 coinsSchema         = '(pKey TEXT, tableName TEXT, UNIQUE(pKey))',
 cmSchema            = '(Date REAL, Open REAL, High REAL, Low REAL, Close REAL, Volume REAL, MarketCap REAL, UNIQUE(Date, Open, High, Low, Close, Volume, MarketCap))',
-rmSchema            = '(Date REAL, Count REAL, UNIQUE(Date, Count)';
+rmSchema            = '(Date REAL, Count REAL, UNIQUE(Date, Count)',
+runLogSchema        = '(Date Text, Epoch REAL)';
 
 /*
 Each object in the parameter data, an array, has the following structure:
@@ -52,7 +53,7 @@ const setup = (fromScratchModeEnabled, eventEmitterRef) => {
         console.log("From scratch mode enabled: clearing out the database");
         //Reset database run log
         db.run(`DROP TABLE IF EXISTS RunLog`, [], (err) => {
-            db.run(`CREATE TABLE RunLog (Date Text, Epoch REAL)`, [], (err) => {});
+            db.run(`CREATE TABLE RunLog ${runLogSchema}`, [], (err) => {});
         });
         //Clear redditmetrics data
         db.each(`SELECT * FROM Subreddits`, [],
@@ -67,12 +68,14 @@ const setup = (fromScratchModeEnabled, eventEmitterRef) => {
             },
             () => {
                 db.run("DROP TABLE IF EXISTS Subreddits", [], () => {
-                    db.run("CREATE TABLE IF NOT EXISTS Subreddits " + subredditsSchema);
+                    db.run(`CREATE TABLE IF NOT EXISTS Subreddits ${subredditsSchema}`);
                 });
             }
         );
     } else {
         console.log("From scratch mode disabled. Database contents (including RunTable) left unaltered");
+        db.run(`CREATE TABLE IF NOT EXISTS RunLog ${runLogSchema}`);
+        db.run(`CREATE TABLE IF NOT EXISTS Subreddits ${subredditsSchema}`);
     }
 
     return db;

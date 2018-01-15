@@ -12,10 +12,11 @@ const scheduleWebScraper = (eventEmitter, db) => {
           rmScraper         = scraperModule.getScraper("redditmetrics"),
           halfHourlyRule    = new schedule.RecurrenceRule();
 
-    halfHourlyRule.minute = 30; //run at the 30 minute mark on each hour
+    halfHourlyRule.minute = 56; //run at the 30 minute mark on each hour
 
     //SCRIPT SCHEDULED TO RUN AT 11:00 PM each day to update with new data
     const hourlyWebScraping = schedule.scheduleJob(halfHourlyRule, function() {
+        console.log(`Starting scheduled webscraper at ${(new Date()).toString()}`);
         rmScraper.run();
     });
 
@@ -147,7 +148,7 @@ const scheduleWebScraper = (eventEmitter, db) => {
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('0 0 14 * * *', function() {
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
