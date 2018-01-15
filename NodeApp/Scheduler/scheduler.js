@@ -3,16 +3,15 @@ const scheduleWebScraper = (eventEmitter, db) => {
     const scraperModule     = require('./../WebScraper/webscraper'),
           schedule          = require("node-schedule"),
           _                 = require('lodash'),
-          Nexmo             = require('nexmo');
+          Nexmo             = require('nexmo'),
           nexmo = new Nexmo({
               apiKey: "a0ad32ba",
               apiSecret: "ca088a5344124a74"
-          });
-
+          }),
           rmScraper         = scraperModule.getScraper("redditmetrics"),
           halfHourlyRule    = new schedule.RecurrenceRule();
 
-    halfHourlyRule.minute = 56; //run at the 30 minute mark on each hour
+    halfHourlyRule.minute = 30; //run at the 30 minute mark on each hour
 
     //SCRIPT SCHEDULED TO RUN AT 11:00 PM each day to update with new data
     const hourlyWebScraping = schedule.scheduleJob(halfHourlyRule, function() {
@@ -148,7 +147,7 @@ const scheduleWebScraper = (eventEmitter, db) => {
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 14 * * *', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
