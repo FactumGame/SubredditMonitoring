@@ -1,84 +1,96 @@
 var
-db, eventEmitter;
+pool, eventEmitter;
 
 const
 async               = require('async'),
-cmFields            = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Market Cap'],
+dbKeyMapper         = require('./dbKeyMapper');
 rmFields            = ['Date', 'Count'],
-appSettingsSchema   = '(property TEXT, value TEXT, UNIQUE(property, value))',
-subredditsSchema    = '(pKey TEXT, tableName TEXT, UNIQUE(pKey))',
-coinsSchema         = '(pKey TEXT, tableName TEXT, UNIQUE(pKey))',
-cmSchema            = '(Date REAL, Open REAL, High REAL, Low REAL, Close REAL, Volume REAL, MarketCap REAL, UNIQUE(Date, Open, High, Low, Close, Volume, MarketCap))',
+subredditsSchema    = '(pkey TEXT, tableName TEXT, UNIQUE(pkey))',
 rmSchema            = '(Date REAL, Count REAL, UNIQUE(Date, Count)',
-runLogSchema        = '(Date Text, Epoch REAL)';
+runLogSchema        = '(Epoch REAL, Date Text)';
 
-/*
-Each object in the parameter data, an array, has the following structure:
-{
-    "pKey": "some unique id like the name of a coin or a subreddit link",
-    "data": "array of objects, each of which contains data about the pKey element on some given Date (represented by epoch of Date object)
-}
-This mapping module (represented as variable dbMapper) does the following:
-1. Creates and populates a table for mapping pKey values to their (generated) table id's in the database
-2. for each element in data: stores element['data'] as the rows of the table mapped to by pKey (from table generated in step 1)
-The reason for this is that the pKey values are things like urls, coin names, etc. and are not always valid tables names for
-an sqlite3 database. This provides a reliable way to consistently generate identifiable tables for storing unpredictable data.
-*/
-const dbKeyMapper = require('./dbKeyMapper'); //Module for handling data to be input to database. Data specifications in module
 const enterData = (data, dataSource) => {
+    /*
+    Each object in the parameter data, an array, has the following structure:
+    {
+        "pkey": "some unique id like the name of a coin or a subreddit link",
+        "data": "array of objects, each of which contains data about the pkey element on some given Date (represented by epoch of Date object)
+    }
+    This mapping module (represented as variable dbMapper) does the following:
+    1. Creates and populates a table for mapping pkey values to their (generated) table id's in the database
+    2. for each element in data: stores element['data'] as the rows of the table mapped to by pkey (from table generated in step 1)
+    The reason for this is that the pkey values are things like urls, coin names, etc. and are not always valid tables names for
+    an postgreSQL database. This provides a reliable way to consistently generate identifiable tables for storing unpredictable data.
+    */
     dbKeyMapper.run(data, dataSource);
 };
 
 const setup = (fromScratchModeEnabled, eventEmitterRef) => {
-
     eventEmitter = eventEmitterRef;
-    const sqlite3 = require('sqlite3').verbose(); //verbose provides longer stacktraces
-    //ALWAYS Open the database on setup()
-    db = new sqlite3.Database('cryptodata.db', sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
-        //error callback to ensure that we successfully create/open the database
-        (error) => {
-            if (error === null) {
-                console.log("Successfully created/opened the database");
-            } else {
-                console.log("Encountered an error while attempting to create the database");
-                console.log(error);
-            }
-        }
-    );
-
+    //Opening the postgreSQL database
+    const { Pool } = require('pg'),
+            pool = new Pool();
     //setup key mapping sub module
-    dbKeyMapper.setup(db, eventEmitter);
-
+    dbKeyMapper.setup(pool);
     if (fromScratchModeEnabled) {
         console.log("From scratch mode enabled: clearing out the database");
         //Reset database run log
-        db.run(`DROP TABLE IF EXISTS RunLog`, [], (err) => {
-            db.run(`CREATE TABLE RunLog ${runLogSchema}`, [], (err) => {});
+        pool.query(`DROP TABLE IF EXISTS RunLog`, (err) => {
+            if (err) { console.log(err); throw err; }
+            pool.query(`CREATE TABLE RunLog ${runLogSchema}`, (err) => {
+                if (err) { throw err; }
+            })
         });
-        //Clear redditmetrics data
-        db.each(`SELECT * FROM Subreddits`, [],
-            (err, row) => {
-                if (err) {
-                    console.log("There was an error selecting all from Subreddits table");
-                    console.log(err);
-                }
-                var tn = row.tableName;
-                console.log(`Dropping table ${tn}`);
-                db.run(`DROP TABLE IF EXISTS ${tn}`);
-            },
-            () => {
-                db.run("DROP TABLE IF EXISTS Subreddits", [], () => {
-                    db.run(`CREATE TABLE IF NOT EXISTS Subreddits ${subredditsSchema}`);
+        //Clear redditmetrics data from database
+        pool.query(`DROP TABLE IF EXISTS Subreddits`, (err) => {
+            if (err) { throw err; }
+            pool.query(`CREATE TABLE IF NOT EXISTS subreddits ${subredditsSchema}`, (err) => {
+                if (err) { throw err;  }
+                pool.query(`SELECT * FROM subreddits`, (err, res) => {
+                    if (err) { throw err; }
+                    let numResolvesCount    = 0,
+                        targetNumResolves   = res.length,
+                        {rows}              = res;
+                    rows.forEach((row) => {
+                        var tn = row.tablename,
+                            tableDropPromise = new Promise((resolve, reject) => {
+                                pool.query(`DROP TABLE IF EXISTS ${tn}`, (err, res) => {
+                                    if (err) { reject(err); }
+                                    console.log(`Dropped table ${tn}`);
+                                    resolve();
+                                });
+                            });
+                        tableDropPromise.then(
+                            () => {
+                                //resolved
+                                numResolvesCount++;
+                                if (numResolvesCount === targetNumResolves) {
+                                    console.log("we have dropped all tables from subreddits");
+                                    pool.query("DROP TABLE IF EXISTS subreddits", (err, res) => {
+                                        if (err) { throw err; }
+                                        pool.query(`CREATE TABLE IF NOT EXISTS subreddits ${subredditsSchema}`, (err, res) => {
+                                            if (err) { throw err; }
+                                        });
+                                    });
+                                }
+                            },
+                            (err) => {
+                                //rejected
+                                throw err;
+                            }
+                        );
+                    });
                 });
-            }
-        );
+            });
+        });
+
     } else {
         console.log("From scratch mode disabled. Database contents (including RunTable) left unaltered");
-        db.run(`CREATE TABLE IF NOT EXISTS RunLog ${runLogSchema}`);
-        db.run(`CREATE TABLE IF NOT EXISTS Subreddits ${subredditsSchema}`);
+        pool.query(`CREATE TABLE IF NOT EXISTS RunLog ${runLogSchema}`);
+        pool.query(`CREATE TABLE IF NOT EXISTS Subreddits ${subredditsSchema}`);
     }
 
-    return db;
+    return pool;
 };
 
 module.exports = {

@@ -14,41 +14,33 @@ const parseData = (dataArr, dataSource) => {
         var url     = responseObj.url,
             html    = responseObj.html,
             $       = cheerio.load(html),
-            spans   = $('span.subscribers').toArray()[0].children,
+            spans   = $('span.subscribers').toArray()[0].children, //spans in which we search for subscriber count
             numSubs = -1;
+
         for (var i = 0; i < spans.length; i++) {
             try {
-                var exp = spans[i].attribs.class === 'number'
+                var exp = spans[i].attribs.class === 'number';
                 if (exp) {
                     numSubs = parseInt(spans[i].children[0].data.replace(/,/g, ''));
                     break;
                 }
             } catch (err) {
-                //happens when target element is not selected, simply continue
+                //happens when span containing subscriber count is not the current span, continue looping
             }
         }
 
-        var subredditInd = url.indexOf("/r/") + 3;
         subredditGrowthData.push({
-            "pKey": url.substring(subredditInd), //subreddit property is name of subreddit and NO other part of url
+            "pkey": url.substring(url.indexOf("/r/") + 3), //subreddit property is name of subreddit and NO other part of url
             "data": [
-                {"Date": dateStamp,
-                 "Count": numSubs}
+                {
+                    "Date": dateStamp,
+                    "Count": numSubs
+                }
             ]
         });
     });
-    typifyAndStore(subredditGrowthData, dataSource);
-};
 
-/*
-data is an array where every object follows this structure: { y: '2012-10-30', a: 0 }
-where key y maps to a string object representing the date. a maps to the growth (num of subscribers)
-that occurred on that day.
-*/
-const typifyAndStore = (data, dataSource) => {
-
-    console.log("Typifying redditmetrics data");
-    db.enterData(data, dataSource);
+    db.enterData(subredditGrowthData, dataSource);
 };
 
 module.exports.parseData = parseData;

@@ -1,14 +1,11 @@
-const scheduleWebScraper = (eventEmitter, db) => {
+const scheduleWebScraper = (eventEmitter, pool) => {
 
     const scraperModule     = require('./../WebScraper/webscraper'),
-          schedule          = require("node-schedule"),
+          schedule          = require('node-schedule-tz');,
           _                 = require('lodash'),
           Nexmo             = require('nexmo'),
-          nexmo = new Nexmo({
-              apiKey: "a0ad32ba",
-              apiSecret: "ca088a5344124a74"
-          }),
           rmScraper         = scraperModule.getScraper("redditmetrics"),
+          nexmo             = new Nexmo({apiKey: "a0ad32ba", apiSecret: "ca088a5344124a74"}),
           halfHourlyRule    = new schedule.RecurrenceRule();
 
     halfHourlyRule.minute = 30; //run at the 30 minute mark on each hour
@@ -20,16 +17,15 @@ const scheduleWebScraper = (eventEmitter, db) => {
     });
 
     const generateTextMessage = (data) => {
-        var index = 1;
-        var txtMsg =    `Message sent at ${(new Date()).toString()}${'\n\n'}` +
-                        data.reduce((accumulator, curr) => {
-                            return accumulator +
-                            `${index++}. ${curr.subreddit}:${'\n'}` +
-                            `Growth Rate: ${curr.growthRate}${'\n'}` +
-                            `Growth Today: ${curr.growthToday}${'\n'}` +
-                            `Growth Yesterday: ${curr.growthYesterday}${'\n\n'}`;
-                        }, "");
-        return txtMsg.toString();
+        var index   = 1;
+        return `Message sent at ${(new Date()).toString()}${'\n\n'}` +
+                data.reduce((accumulator, curr) => {
+                    return accumulator +
+                    `${index++}. ${curr.subreddit}:${'\n'}` +
+                    `Growth Rate: ${curr.growthRate}${'\n'}` +
+                    `Growth Today: ${curr.growthToday}${'\n'}` +
+                    `Growth Yesterday: ${curr.growthYesterday}${'\n\n'}`;
+                }, "").toString();
     };
 
     //callback function when we have extracted all data from the database
@@ -147,23 +143,25 @@ const scheduleWebScraper = (eventEmitter, db) => {
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', 'America/New_York', function() {
+
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
-        db.all(`SELECT * FROM Subreddits`, [], (err, rows) => {
+
+        pool.query(`SELECT * FROM subreddits`, (err, rows) => {
             numPromises = rows.length;
-            var pKeys       = rows.map(row => row.pKey);
-                tableNames  = rows.map(row => row.tableName);
-            tableNames.forEach((tableName, index) => {
+            var pkeys       = rows.map(row => row.pkey);
+                tableNames  = rows.map(row => row.tablename);
+            tableNames.forEach((tablename, index) => {
                 var dataRetrievalPromise = new Promise((resolve, reject) => {
-                    db.all(`SELECT * FROM ${tableName}`, [], (err, rows) => {
+                    pool.query(`SELECT * FROM ${tablename}`, (err, rows) => {
                         if (err) {
                             reject();
                             throw err;
                         }
                         allData.push({
-                            "subreddit": pKeys[index],
+                            "subreddit": pkeys[index],
                             'data': rows
                         });
                         resolve();

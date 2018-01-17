@@ -1,11 +1,22 @@
+/*
+THINGS TO FIX
+
+//Todo
+1. Right now, if any of our urls "breaks" i.e. fails on 3 separate request attempts, our data pipeline will break as
+   we are currently reliant on a hard coded number of values to expect. Need to create some reliable way to fix this
+   error, even though it is unlikely to be encountered.
+
+*/
+
+
 const run = () => {
 
-    //set to false on deploy due to auto dyno restarts and db persistence
-    var fromScratchModeEnabled  = false,
-        runScraperOnStartup     = false;
+    //PROGRAM SETTINGS
+    let FROM_SCRATCH_MODE_ENABLED  = true,
+        RUN_SCRAPER_ON_STARTUP     = true;
 
     //Run Server Setup bind to port
-    const server = require('./ExpressServer/server'); //IMPORTANT: check this module to comment our module path for deployment
+    const server = require('./ExpressServer/server');
     const app    = server.initialize();
 
     //Setup EventEmitter
@@ -14,23 +25,25 @@ const run = () => {
 
     //Setup Database
     const dbModule = require('./Database/database');
-    const db = dbModule.setup(fromScratchModeEnabled, eventEmitter);
+    const pool = dbModule.setup(FROM_SCRATCH_MODE_ENABLED, eventEmitter);
 
     //Setup and Run Data Scrapers
     const scraperModule = require('./WebScraper/webscraper');
     const redditMetricsScraper = scraperModule.getScraper('redditmetrics');
-    if (runScraperOnStartup) {
+    redditMetricsScraper.setup(eventEmitter);
+
+    if (RUN_SCRAPER_ON_STARTUP) {
         redditMetricsScraper.run();
     }
 
     //Setup API query handlers
     const api = require('./API/api');
-    api.setup(app, db);
+    api.setup(app, pool);
 
     //Schedule web scraping task
     const schedule = require("node-schedule");
     const scheduleModule = require('./Scheduler/scheduler');
-    scheduleModule.scheduleWebScraper(eventEmitter, db);
+    scheduleModule.scheduleWebScraper(eventEmitter, pool);
 
 };
 

@@ -1,19 +1,20 @@
 const async = require('async');
 const _ = require('lodash');
 
-const setup = (app, db) => {
+const setup = (app, pool) => {
 
     //GET all subreddit names
     app.get('/subreddit_names/', (req, res) => {
 
-        db.all('SELECT * FROM Subreddits', [], (err, rows) => {
+        pool.query('SELECT * FROM subreddits', (err, response) => {
+            let { rows } = response;
             if (err) {
                 res.send({
                     "error": err
                 });
             } else {
                 res.send({
-                    "subreddit_names": rows.map((elem) => { return elem.pKey; })
+                    "subreddit_names": rows.map((elem) => { return elem.pkey; })
                 });
             }
         });
@@ -21,8 +22,9 @@ const setup = (app, db) => {
 
     //GET data for specific subreddit
     app.get('/subreddits/:name', (req, res) => {
-
-        db.all(`SELECT S.tableName FROM Subreddits AS S WHERE S.pkey = \"${req.params.name}\"`, [], (err, rows) => {
+        pool.query(`SELECT S.tablename FROM subreddits AS S WHERE S.pkey = $1`, [req.params.name], (err, response) => {
+            if (err) { throw err; }
+            let { rows } = response;
             if (err) {
                 res.send({
                     "error": err
@@ -33,10 +35,11 @@ const setup = (app, db) => {
                 });
             } else if (rows.length > 1) {
                 res.send({
-                    "error": "server side error with mapping of pKeys to database tables"
+                    "error": "server side error with mapping of pkeys to database tables"
                 });
             } else {
-                db.all(`SELECT * FROM ${rows[0].tableName}`, [], (err, innerRows) => {
+                pool.query(`SELECT * FROM ${rows[0].tablename}`, (err, innerRows) => {
+                    let {rows} = innerRows;
                     if (err) {
                         res.send({
                             "error": err
@@ -44,7 +47,7 @@ const setup = (app, db) => {
                     } else {
                         res.send({
                             "subreddit": req.params.name,
-                            "data": innerRows
+                            "data": rows
                         })
                     }
                 });

@@ -1,27 +1,25 @@
 const Combinatorics = require('js-combinatorics');
-var db, eventEmitter;
+var pool;
 
 var alphabet = 'abcdefghijklmnopqrstuvwxyz'.split(''),
-    mappingTableSchema = "(pKey TEXT, tableName TEXT, UNIQUE(pKey))"
+    mappingTableSchema = "(pkey TEXT, tablename TEXT, UNIQUE(pkey))"
     usedLetterPointer = -1, //array pointer for alphabet. elem pointed to and all previous elements have been "used"
     //At some point move the declaration of this data elsewhere to avoid duplication of information
     dataSourcesInfo = [
         {
             "source": "redditmetrics",
-            "mappingTableName": "Subreddits",
+            "mappingTableName": "subreddits",
             "orderedKeys": ['Date', 'Count'],
             "dataTableSchema": '(Date REAL, Count REAL, UNIQUE(Date, Count))',
-            "dataTableInsertString": '(?,?)',
-            "numIdentifiers": 135, //we are currently scraping from 135 subreddits
+            "numIdentifiers": 4, //we are currently scraping from 135 subreddits
             "alphabet": [],
             "mappings": {}
         }
     ];
 
-const setup = (dbRef, eventEmitterRef) => {
+const setup = (poolRef) => {
 
-    db = dbRef;
-    eventEmitter = eventEmitterRef;
+    pool = poolRef;
 
     //Generate alphabets for each of our data sources
     for (var i = 0; i < dataSourcesInfo.length; i++) {
@@ -58,96 +56,100 @@ const run = (data, dataSource) => {
         }
     }
     if (dataInfo === undefined) {
-        console.log(dataSource);
-        throw new Error("ERROR: When attempting to run dbKeyMapper module on data object, unrecognized data source");
+        throw new Error(`ERROR: When attempting to run dbKeyMapper module on data object, unrecognized data source ${dataSource}`);
     }
-    //Generate mappings from pKeys to our randomly generated valid table names
+    //Generate mappings from pkeys to our randomly generated valid table names
     const   alphabet                = dataInfo['alphabet'],
             identifyingPermutations = Combinatorics.baseN(alphabet, alphabet.length).toArray().sort().slice(0, dataInfo['numIdentifiers']),
             identifyingStrPerms     = identifyingPermutations.map((elem) => { return elem.join(''); }) //char arrays to strings
             mappingTableName        = dataInfo.mappingTableName,
-            rows                    = data.map((elem, ind) => { return [elem['pKey'], identifyingStrPerms[ind]]; }),
-            pKeyToDataMap           = data.reduce((accumulator, curr) => {
-                accumulator[curr.pKey] = curr.data;
+            rows                    = data.map((elem, ind) => { return [elem['pkey'], identifyingStrPerms[ind]]; }),
+            pkeyToDataMap           = data.reduce((accumulator, curr) => {
+                accumulator[curr.pkey] = curr.data;
                 return accumulator;
             }, {});
 
     //insert data into tables (triggered as a callback)
     const insertData = () => {
         var promiseResolveCount = 0;
-        db.each(`SELECT * FROM ${mappingTableName}`, [],
-            (err, row) => {
-                if (err) {
-                    throw new Error(`ERROR: Unable to select all from table ${mappingTableName}`);
-                }
-                var pKey = row.pKey,
-                    tableName = row.tableName,
-                    data = pKeyToDataMap[pKey],
+        pool.query(`SELECT * FROM ${mappingTableName}`, (err, res) => {
+            if (err) { throw err; }
+            let {rows} = res;
+            rows.forEach((row) => {
+                var pkey = row.pkey,
+                    tablename = row.tablename,
+                    data = pkeyToDataMap[pkey],
                     dataEntryPromise = new Promise((resolve, reject) => {
-                        db.run(`CREATE TABLE IF NOT EXISTS ${tableName} ${dataInfo.dataTableSchema}`, [], () => {
-                            var bulkLoadRows = db.prepare(`INSERT INTO ${tableName} VALUES ${dataInfo.dataTableInsertString}`),
-                                runFunc = bulkLoadRows.run;
-                            //We are entering data this way since we have the number of parameters to call bulkLoadRows.run with varies by dataSource
-                            data.forEach((row) => {
-                                var newRow = [];
+                        pool.query(`CREATE TABLE IF NOT EXISTS ${tablename} ${dataInfo.dataTableSchema}`, (err) => {
+                            if (err) { throw err; }
+                            //Now that we have created table, generate bulk load query in string form and execute
+                            var argInd = 1,
+                            query = data.reduce((accumulator, currRow) => {
+                                return accumulator + `(${"$"}${argInd++},${"$"}${argInd++}),`;
+                            }, `INSERT INTO ${tablename} VALUES `).slice(0,-1), //remove trailing comma
+                            unpackedRows = data.reduce((accumulator, currRow) => {
                                 dataInfo.orderedKeys.forEach((key) => {
-                                    newRow.push(row[key]);
+                                    accumulator.push(key === 'Date' ? (new Date(currRow[key])).valueOf() : currRow[key]);
                                 });
-                                runFunc.apply(bulkLoadRows, newRow);
-                            });
-                            //After we complete our bulk loading, we call the finish callback.
-                            bulkLoadRows.finalize(() => {
+                                return accumulator;
+                            }, []);
+                            pool.query(query, unpackedRows, (err, res) => {
+                                if (err) { throw err; }
                                 var epoch = data[0].Date;
-                                console.log(`We have entered data for ${pKey} in mapped table ${tableName} AT: ${(new Date(epoch)).toString()}`);
+                                console.log(`We have entered data for ${pkey} in mapped table ${tablename} AT: ${(new Date(epoch)).toString()}`);
                                 resolve(data); //will either resolve or error will be thrown so no explicit call to reject
                             });
                         });
                     });
                 dataEntryPromise.then((data) => {
-
                     promiseResolveCount++;
                     if (promiseResolveCount === dataInfo.numIdentifiers) {
                         var epoch = data[0].Date;
                         console.log(`WE HAVE FINISHED ENTERING DATA FOR DATA SOURCE: ${dataSource} AT DATE STAMP: ${[epoch, new Date(epoch).toString()]}`);
-
                         //now we log our run in the database
-                        db.run(`INSERT INTO RunLog VALUES (?, ?)`, [epoch, new Date(epoch).toString()], () => {
-
+                        pool.query(`INSERT INTO RunLog VALUES ($1, $2)`, [epoch, new Date(epoch).toString()], (err) => {
+                            if (err) { throw err; }
                         });
                     }
                 });
-            },
-            () => {
-
-            }
-        );
+            });
+        });
     };
+
     //Input rows into mapping table (triggered as a callback)
     const insertMappingData = () => {
-        var bulkLoadRows = db.prepare(`INSERT INTO ${mappingTableName} VALUES (?,?)`);
-        rows.forEach((row) => { bulkLoadRows.run(row[0], row[1]); });
-        //After we complete our bulk loading, we call the finish callback.
-        bulkLoadRows.finalize(() => {
+        let argInd = 1,
+            query = rows.reduce((accumulator, current) => {
+                return accumulator +  `(${"$"}${argInd++},${"$"}${argInd++}),`;
+            }, `INSERT INTO ${mappingTableName} VALUES `).slice(0,-1), //remove trailing comma
+            unpackedRows = rows.reduce((accumulator, currRow) => {
+                accumulator.push(currRow[0]);
+                accumulator.push(currRow[1]);
+                return accumulator;
+            }, []);
+        pool.query(query, unpackedRows, (err, res) => {
+            if (err) {
+                console.log(err);
+                throw err;
+            }
             console.log(`We have created and populated our mapping table for data source ${dataInfo.source}`);
             insertData();
         });
     };
 
     //Create mapping table
-    db.run(`CREATE TABLE IF NOT EXISTS ${mappingTableName} ${mappingTableSchema}`, [], () => {
+    pool.query(`CREATE TABLE IF NOT EXISTS ${mappingTableName} ${mappingTableSchema}`, (err) => {
+        if (err) { throw err; }
         //check to see if this is first run of scraper
-        db.all(`SELECT * FROM RunLog`, [], (err, rows) => {
-            if (err) {
-                console.log("Error selecting all from RunLog in dbMapper module");
-                console.log(err);
+        pool.query(`SELECT * FROM RunLog`, (err, res) => {
+            let {rows} = res;
+            if (err) { throw err; }
+            if (rows.length > 0) {
+                //if this is not our first run, we do not insert mapping data. Go straight to data insert
+                insertData();
             } else {
-                if (rows.length > 0) {
-                    //if this is not our first run, we do not insert mapping data. Go straight to data insert
-                    insertData();
-                } else {
-                    //if this is the first run, we want to insert mapping data, which triggers callback to data insert at finish
-                    insertMappingData();
-                }
+                //if this is the first run, we want to insert mapping data, which triggers callback to data insert at finish
+                insertMappingData();
             }
         });
     });
