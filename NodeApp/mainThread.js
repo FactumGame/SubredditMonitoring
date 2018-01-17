@@ -13,7 +13,7 @@ const run = () => {
 
     //PROGRAM SETTINGS
     let FROM_SCRATCH_MODE_ENABLED  = true,
-        LOCAL_RUN                  = true,
+        LOCAL_RUN                  = false,
         RUN_SCRAPER_ON_STARTUP     = true;
 
     //Run Server Setup bind to port
