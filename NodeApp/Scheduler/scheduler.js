@@ -8,7 +8,7 @@ const scheduleWebScraper = (eventEmitter, pool) => {
           nexmo             = new Nexmo({apiKey: "a0ad32ba", apiSecret: "ca088a5344124a74"}),
           halfHourlyRule    = new schedule.RecurrenceRule();
 
-    halfHourlyRule.minute = 30; //run at the 30 minute mark on each hour
+    halfHourlyRule.minute = 46; //run at the 30 minute mark on each hour
 
     //SCRIPT SCHEDULED TO RUN AT 11:00 PM each day to update with new data
     const hourlyWebScraping = schedule.scheduleJob(halfHourlyRule, function() {
@@ -146,7 +146,7 @@ const scheduleWebScraper = (eventEmitter, pool) => {
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('0 49 17 * * *', function() {
 
         var promiseResolveCount = 0,
             numPromises         = -1,
