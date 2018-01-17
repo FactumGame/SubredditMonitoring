@@ -1,7 +1,7 @@
 const scheduleWebScraper = (eventEmitter, pool) => {
 
     const scraperModule     = require('./../WebScraper/webscraper'),
-          schedule          = require('node-schedule-tz');,
+          schedule          = require('node-schedule-tz'),
           _                 = require('lodash'),
           Nexmo             = require('nexmo'),
           rmScraper         = scraperModule.getScraper("redditmetrics"),
