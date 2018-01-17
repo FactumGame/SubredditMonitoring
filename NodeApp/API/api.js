@@ -3,6 +3,28 @@ const _ = require('lodash');
 
 const setup = (app, pool) => {
 
+    app.get('/add_two_day_old_data_filler/', (req, res) => {
+        pool.query('SELECT * FROM subreddits', (err, response) => {
+            let {rows}      = response,
+                tableNames  = rows.map((elem) => { return elem.tablename; }),
+                mostRecentDate;
+            pool.query(`SELECT * FROM ${tableNames[0]}`, (err, r) => {
+                let {rows} = r,
+                    mostRecentDate = parseInt(rows[rows.length - 1].date),
+                    firstIns = mostRecentDate + 86400000, //num milliseconds in a day 
+                    secondIns = mostRecentDate + 2 * 86400000;
+                tableNames.forEach((tn) => {
+                    pool.query(`INSERT INTO ${tn} VALUES ($1,$2),($3,$4)`, [firstIns, 1, secondIns, 2], (err, response) => {
+                        if (err) {
+                            console.log(err);
+                            throw err;
+                        }
+                    })
+                });
+            });
+        })
+    });
+
     //GET all subreddit names
     app.get('/subreddit_names/', (req, res) => {
 
@@ -39,7 +61,6 @@ const setup = (app, pool) => {
                 });
             } else {
                 pool.query(`SELECT * FROM ${rows[0].tablename}`, (err, innerRows) => {
-                    let {rows} = innerRows;
                     if (err) {
                         res.send({
                             "error": err
@@ -47,7 +68,7 @@ const setup = (app, pool) => {
                     } else {
                         res.send({
                             "subreddit": req.params.name,
-                            "data": rows
+                            "data": innerRows.rows
                         })
                     }
                 });

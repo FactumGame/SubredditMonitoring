@@ -7,15 +7,14 @@ const parseData = (dataArr, dataSource) => {
 
     console.log("Begin the parsing of our inbound html from redditmetrics");
 
-    var subredditGrowthData = [],
+    let subredditGrowthData = [],
         dateStamp = (new Date()).valueOf(); //time we get data at, same for all data points in single scraping run
 
     dataArr.forEach((responseObj) => {
-        var url     = responseObj.url,
-            html    = responseObj.html,
-            $       = cheerio.load(html),
-            spans   = $('span.subscribers').toArray()[0].children, //spans in which we search for subscriber count
-            numSubs = -1;
+        var {url, html}  = responseObj,
+            $           = cheerio.load(html),
+            spans       = $('span.subscribers').toArray()[0].children, //spans in which we search for subscriber count
+            numSubs     = -1;
 
         for (var i = 0; i < spans.length; i++) {
             try {

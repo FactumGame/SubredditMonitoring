@@ -6,11 +6,11 @@ const asyncRequestUrls = (urls, dataSource, limit, resultsProcessingCallback) =>
             console.log("STARTED FOR " + dataSource);
 
             //DEBUG VARIABLES TO SIMULATE NETWORK FAILURES CONDITIONS
-            const randomFailuresEnabled = false,
-                  failureRate           = 0; //to the nearest percent
+            let randomFailuresEnabled = false,
+                failureRate           = 0;      //decimal number greater than or equal to 0 less than or equal to 1
             //END DEBUG VARIABLES
 
-            var returnArr           = [], //top level scope so we can add finished request data from any callback
+            let returnArr           = [], //top level scope so we can add finished request data from any callback
                 brokenUrls          = [], //any urls we are unable to retrieve data from after multiple attempts
                 failureCountMap     = {}, //Count failures for each url. If we fail too many times stop trying and exit
                 failureCountLimit   = 3;
@@ -18,37 +18,6 @@ const asyncRequestUrls = (urls, dataSource, limit, resultsProcessingCallback) =>
             urls.forEach((url) => {
                 failureCountMap[url] = 0;
             });
-
-            /*
-            THIS METHOD IS ONLY EVER CALLED ONCE ALL RESPONSES ARE RECEIVED SO WE PASS NO PARAMS
-            We use the original urls parameter passed in to determine the correct ordering of our
-            response objects, as async.map gives no definitive guarantees on relative ordering of responses.
-            */
-            const orderResponses = () => {
-
-                var sortedArr   = [];
-
-                for (var x = 0; x < urls.length; x++) {
-                    var currUrl = urls[x],
-                        found   = false;
-                    for (var y = 0; y < returnArr.length; y++) {
-                        var currObj = returnArr[y];
-                        if (currObj.url === currUrl) {
-                            sortedArr.push(currObj);
-                            found = true;
-                            break;
-                        }
-                    }
-                    //In some cases, the data we desire is not at the requested url. Maybe add some flags
-                    //to handle cases like this later on.
-                    if (!found) {
-                        //DO SOMETHING LATER ON?
-                    }
-                }
-
-                returnArr = sortedArr;
-                return;
-            }
 
             const sendRequest = (url, done) => {
                     var params = {
@@ -110,7 +79,6 @@ const asyncRequestUrls = (urls, dataSource, limit, resultsProcessingCallback) =>
                                 console.log("Our requests failed for the following urls");
                                 console.log(brokenUrls);
                             }
-                            orderResponses();
                             resultsProcessingCallback(returnArr, dataSource);
                         } else {
                             fireAsyncRequests(failedUrls); //Recurse to re-send failed requests

@@ -13,6 +13,7 @@ const run = () => {
 
     //PROGRAM SETTINGS
     let FROM_SCRATCH_MODE_ENABLED  = true,
+        LOCAL_RUN                  = true,
         RUN_SCRAPER_ON_STARTUP     = true;
 
     //Run Server Setup bind to port
@@ -25,7 +26,7 @@ const run = () => {
 
     //Setup Database
     const dbModule = require('./Database/database');
-    const pool = dbModule.setup(FROM_SCRATCH_MODE_ENABLED, eventEmitter);
+    const pool = dbModule.setup(FROM_SCRATCH_MODE_ENABLED, eventEmitter, LOCAL_RUN);
 
     //Setup and Run Data Scrapers
     const scraperModule = require('./WebScraper/webscraper');

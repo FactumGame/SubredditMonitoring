@@ -10,7 +10,7 @@ var alphabet = 'abcdefghijklmnopqrstuvwxyz'.split(''),
             "source": "redditmetrics",
             "mappingTableName": "subreddits",
             "orderedKeys": ['Date', 'Count'],
-            "dataTableSchema": '(Date REAL, Count REAL, UNIQUE(Date, Count))',
+            "dataTableSchema": '(Date NUMERIC(15), Count NUMERIC(10), UNIQUE(Date))',
             "numIdentifiers": 135, //we are currently scraping from 135 subreddits
             "alphabet": [],
             "mappings": {}
@@ -82,19 +82,19 @@ const run = (data, dataSource) => {
                     dataEntryPromise = new Promise((resolve, reject) => {
                         pool.query(`CREATE TABLE IF NOT EXISTS ${tablename} ${dataInfo.dataTableSchema}`, (err) => {
                             if (err) { throw err; }
-                            //Now that we have created table, generate bulk load query in string form and execute
-                            var argInd = 1,
-                            query = data.reduce((accumulator, currRow) => {
-                                return accumulator + `(${"$"}${argInd++},${"$"}${argInd++}),`;
-                            }, `INSERT INTO ${tablename} VALUES `).slice(0,-1), //remove trailing comma
-                            unpackedRows = data.reduce((accumulator, currRow) => {
-                                dataInfo.orderedKeys.forEach((key) => {
-                                    accumulator.push(key === 'Date' ? (new Date(currRow[key])).valueOf() : currRow[key]);
-                                });
-                                return accumulator;
-                            }, []);
+                            let argInd = 1,
+                                query = data.reduce((accumulator, currRow) => {
+                                    return accumulator + `(${"$"}${argInd++},${"$"}${argInd++}),`;
+                                }, `INSERT INTO ${tablename} VALUES `).slice(0, -1), //remove trailing comma
+                                unpackedRows = data.reduce((accumulator, currRow) => {
+                                    dataInfo.orderedKeys.forEach((key) => {
+                                        accumulator.push(currRow[key]);
+                                    });
+                                    return accumulator;
+                                }, []);
+
                             pool.query(query, unpackedRows, (err, res) => {
-                                if (err) { throw err; }
+                                if (err) { console.log(err); throw err; }
                                 var epoch = data[0].Date;
                                 console.log(`We have entered data for ${pkey} in mapped table ${tablename} AT: ${(new Date(epoch)).toString()}`);
                                 resolve(data); //will either resolve or error will be thrown so no explicit call to reject

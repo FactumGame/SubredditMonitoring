@@ -5,9 +5,9 @@ const
 async               = require('async'),
 dbKeyMapper         = require('./dbKeyMapper');
 rmFields            = ['Date', 'Count'],
-subredditsSchema    = '(pkey TEXT, tableName TEXT, UNIQUE(pkey))',
-rmSchema            = '(Date REAL, Count REAL, UNIQUE(Date, Count)',
-runLogSchema        = '(Epoch REAL, Date Text)';
+subredditsSchema    = '(pkey VARCHAR(30), tablename VARCHAR(30), UNIQUE(pkey))',
+rmSchema            = '(Date NUMERIC(15), Count Numeric(10), UNIQUE(Date))',
+runLogSchema        = '(Epoch NUMERIC(15), Date  VARCHAR(40))';
 
 const enterData = (data, dataSource) => {
     /*
@@ -25,68 +25,62 @@ const enterData = (data, dataSource) => {
     dbKeyMapper.run(data, dataSource);
 };
 
-const setup = (fromScratchModeEnabled, eventEmitterRef) => {
+const setup = (fromScratchModeEnabled, eventEmitterRef, LOCAL_RUN) => {
+
     eventEmitter = eventEmitterRef;
     //Opening the postgreSQL database
     const { Pool } = require('pg'),
-            pool = new Pool({
-                "connectionString": process.env.DATABASE_URL,
-                "ssl": true
-            });
+            options = LOCAL_RUN ? {} : {"connectionString": process.env.DATABASE_URL, "ssl": true};
+            pool = new Pool(options);
+
     //setup key mapping sub module
     dbKeyMapper.setup(pool);
     if (fromScratchModeEnabled) {
         console.log("From scratch mode enabled: clearing out the database");
         //Reset database run log
-        pool.query(`DROP TABLE IF EXISTS RunLog`, (err) => {
-            if (err) { console.log(err); throw err; }
-            pool.query(`CREATE TABLE RunLog ${runLogSchema}`, (err) => {
-                if (err) { throw err; }
-            })
+        pool.query(`DROP TABLE IF EXISTS RunLog`, () => {
+            pool.query(`CREATE TABLE RunLog ${runLogSchema}`);
         });
         //Clear redditmetrics data from database
-        pool.query(`DROP TABLE IF EXISTS Subreddits`, (err) => {
-            if (err) { throw err; }
-            pool.query(`CREATE TABLE IF NOT EXISTS subreddits ${subredditsSchema}`, (err) => {
-                if (err) { throw err;  }
-                pool.query(`SELECT * FROM subreddits`, (err, res) => {
-                    if (err) { throw err; }
-                    let numResolvesCount    = 0,
-                        targetNumResolves   = res.length,
-                        {rows}              = res;
-                    rows.forEach((row) => {
-                        var tn = row.tablename,
-                            tableDropPromise = new Promise((resolve, reject) => {
-                                pool.query(`DROP TABLE IF EXISTS ${tn}`, (err, res) => {
-                                    if (err) { reject(err); }
-                                    console.log(`Dropped table ${tn}`);
-                                    resolve();
-                                });
+        pool.query(`SELECT * FROM Subreddits`, (err, res) => {
+            if (err) {
+                console.log(`There was an error because Subreddits table does not exist. Thus we have no drops to make`);
+                pool.query(`CREATE TABLE Subreddits ${subredditsSchema}`);
+            } else {
+                let numResolvesCount    = 0,
+                    targetNumResolves   = res.rows.length,
+                    {rows}              = res;
+                rows.forEach((row) => {
+                    var tn = row.tablename,
+                        tableDropPromise = new Promise((resolve, reject) => {
+                            pool.query(`DROP TABLE IF EXISTS ${tn}`, (err, res) => {
+                                if (err) { reject(err); }
+                                console.log(`Dropped table ${tn}`);
+                                resolve();
                             });
-                        tableDropPromise.then(
-                            () => {
-                                //resolved
-                                numResolvesCount++;
-                                if (numResolvesCount === targetNumResolves) {
-                                    console.log("we have dropped all tables from subreddits");
-                                    pool.query("DROP TABLE IF EXISTS subreddits", (err, res) => {
+                        });
+                    tableDropPromise.then(
+                        () => {
+                            //resolved
+                            numResolvesCount++;
+                            if (numResolvesCount === targetNumResolves) {
+                                console.log("we have dropped all tables from subreddits");
+                                pool.query("DROP TABLE IF EXISTS subreddits", (err, res) => {
+                                    if (err) { throw err; }
+                                    pool.query(`CREATE TABLE IF NOT EXISTS subreddits ${subredditsSchema}`, (err, res) => {
                                         if (err) { throw err; }
-                                        pool.query(`CREATE TABLE IF NOT EXISTS subreddits ${subredditsSchema}`, (err, res) => {
-                                            if (err) { throw err; }
-                                        });
                                     });
-                                }
-                            },
-                            (err) => {
-                                //rejected
-                                throw err;
+                                });
                             }
-                        );
-                    });
+                        },
+                        (err) => {
+                            //rejected
+                            throw err;
+                        }
+                    );
                 });
-            });
+            }
         });
-
     } else {
         console.log("From scratch mode disabled. Database contents (including RunTable) left unaltered");
         pool.query(`CREATE TABLE IF NOT EXISTS RunLog ${runLogSchema}`);

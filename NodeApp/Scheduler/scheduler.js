@@ -1,7 +1,7 @@
 const scheduleWebScraper = (eventEmitter, pool) => {
 
     const scraperModule     = require('./../WebScraper/webscraper'),
-          schedule          = require('node-schedule-tz'),
+          schedule          = require('node-schedule'),
           _                 = require('lodash'),
           Nexmo             = require('nexmo'),
           rmScraper         = scraperModule.getScraper("redditmetrics"),
@@ -31,6 +31,9 @@ const scheduleWebScraper = (eventEmitter, pool) => {
     //callback function when we have extracted all data from the database
     const analyzeData = (data) => {
 
+        console.log(data); 
+        console.log('above'); 
+
         var subredditGrowthData = [],
             numCoinsReported    = 15; //we report the top numCoinsReportedDate coins and their growth data
 
@@ -57,8 +60,8 @@ const scheduleWebScraper = (eventEmitter, pool) => {
                 secondMostRecentDayGrowth = false;
             //first we probe for most recent day growth
             while (mp > 0) {
-                if ((d[ep].Date - d[mp].Date) / (24 * 60 * 60 * 1000 * 1.0) >= 1.0) {
-                    mostRecentDayGrowth = d[ep].Count - d[mp].Count;
+                if ((d[ep].date - d[mp].date) / (24 * 60 * 60 * 1000 * 1.0) >= 1.0) {
+                    mostRecentDayGrowth = d[ep].count - d[mp].count;
                     //set sp to new value. we start decrementing from this point, mp is minimally
                     //1 if this if statement is triggered so sp always in range
                     sp = mp - 1;
@@ -77,8 +80,8 @@ const scheduleWebScraper = (eventEmitter, pool) => {
             }
             //now we probe for the second most recent day growth
             while (sp >= 0) {
-                if ((d[mp].Date - d[sp].Date) / (24 * 60 * 60 * 1000 * 1.0) >= 1.0) {
-                    secondMostRecentDayGrowth = d[mp].Count - d[sp].Count;
+                if ((d[mp].date - d[sp].date) / (24 * 60 * 60 * 1000 * 1.0) >= 1.0) {
+                    secondMostRecentDayGrowth = d[mp].count - d[sp].count;
                     break;
                 }
                 sp--;
@@ -97,8 +100,8 @@ const scheduleWebScraper = (eventEmitter, pool) => {
             subredditGrowthData.push({
                 "subreddit": subreddit,
                 "growthRate": growthRate,
-                "growthToday": (d[ep].Count - d[mp].Count),
-                "growthYesterday": (d[mp].Count - d[sp].Count)
+                "growthToday": (d[ep].count - d[mp].count),
+                "growthYesterday": (d[mp].count - d[sp].count)
             });
         });
         var viableGrowthData = [];
@@ -125,10 +128,10 @@ const scheduleWebScraper = (eventEmitter, pool) => {
         }
 
         var timeoutMultiplier = 0; //for api call time limits
-        sendToNums.forEach((num) => {
+        sendToNums.forEach((toNum) => {
             setTimeout(() => {
                 nexmo.message.sendSms(
-                    '12132055816', num, txtMsg,
+                    '12132055816', toNum, txtMsg,
                     (err, responseData) => {
                         if (err) {
                             console.log(err);
@@ -143,19 +146,21 @@ const scheduleWebScraper = (eventEmitter, pool) => {
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', 'America/New_York', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
 
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
 
-        pool.query(`SELECT * FROM subreddits`, (err, rows) => {
-            numPromises = rows.length;
-            var pkeys       = rows.map(row => row.pkey);
+        pool.query(`SELECT * FROM subreddits`, (err, res) => {
+            let {rows}      = res,
+                numPromises = rows.length,
+                pkeys       = rows.map(row => row.pkey);
                 tableNames  = rows.map(row => row.tablename);
             tableNames.forEach((tablename, index) => {
                 var dataRetrievalPromise = new Promise((resolve, reject) => {
-                    pool.query(`SELECT * FROM ${tablename}`, (err, rows) => {
+                    pool.query(`SELECT * FROM ${tablename}`, (err, res) => {
+                        let {rows} = res;
                         if (err) {
                             reject();
                             throw err;
