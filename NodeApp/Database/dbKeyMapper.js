@@ -11,7 +11,7 @@ var alphabet = 'abcdefghijklmnopqrstuvwxyz'.split(''),
             "mappingTableName": "subreddits",
             "orderedKeys": ['Date', 'Count'],
             "dataTableSchema": '(Date REAL, Count REAL, UNIQUE(Date, Count))',
-            "numIdentifiers": 4, //we are currently scraping from 135 subreddits
+            "numIdentifiers": 135, //we are currently scraping from 135 subreddits
             "alphabet": [],
             "mappings": {}
         }
