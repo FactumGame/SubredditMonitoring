@@ -29,7 +29,10 @@ const setup = (fromScratchModeEnabled, eventEmitterRef) => {
     eventEmitter = eventEmitterRef;
     //Opening the postgreSQL database
     const { Pool } = require('pg'),
-            pool = new Pool();
+            pool = new Pool({
+                "connectionString": process.env.DATABASE_URL,
+                "ssl": true
+            });
     //setup key mapping sub module
     dbKeyMapper.setup(pool);
     if (fromScratchModeEnabled) {
