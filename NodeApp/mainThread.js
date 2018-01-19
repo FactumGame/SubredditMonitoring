@@ -12,9 +12,10 @@ THINGS TO FIX
 const run = () => {
 
     //PROGRAM SETTINGS
-    let FROM_SCRATCH_MODE_ENABLED  = true,
+    //Set all to false on deployment
+    let FROM_SCRATCH_MODE_ENABLED  = false,
         LOCAL_RUN                  = false,
-        RUN_SCRAPER_ON_STARTUP     = true;
+        RUN_SCRAPER_ON_STARTUP     = false;
 
     //Run Server Setup bind to port
     const server = require('./ExpressServer/server');
