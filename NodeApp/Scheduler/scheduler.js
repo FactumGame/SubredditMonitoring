@@ -5,7 +5,7 @@ const scheduleWebScraper = (eventEmitter, pool) => {
           _                 = require('lodash'),
           Nexmo             = require('nexmo'),
           rmScraper         = scraperModule.getScraper("redditmetrics"),
-          nexmo             = new Nexmo({apiKey: "a0ad32ba", apiSecret: "ca088a5344124a74"}),
+          nexmo             = new Nexmo({apiKey: process.env.NEXMO_API_KEY, apiSecret: process.env.NEXMO_API_SECRET}),
           halfHourlyRule    = new schedule.RecurrenceRule();
 
     halfHourlyRule.minute = 30; //run at the 30 minute mark on each hour
@@ -127,6 +127,8 @@ const scheduleWebScraper = (eventEmitter, pool) => {
             txtMsg = "Sorry. We do not have enough data to analyze growth trends. We will continue sending messages at 11:00 pm every night until we do!";
         }
 
+        console.log(txtMsg); 
+
         var timeoutMultiplier = 0; //for api call time limits
         sendToNums.forEach((toNum) => {
             setTimeout(() => {
@@ -146,19 +148,20 @@ const scheduleWebScraper = (eventEmitter, pool) => {
     };
 
     //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', function() {
+    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', () => {
 
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
 
         pool.query(`SELECT * FROM subreddits`, (err, res) => {
+            if (err) { throw err; }
             let {rows}      = res,
                 numPromises = rows.length,
                 pkeys       = rows.map(row => row.pkey);
                 tableNames  = rows.map(row => row.tablename);
             tableNames.forEach((tablename, index) => {
-                var dataRetrievalPromise = new Promise((resolve, reject) => {
+                let dataRetrievalPromise = new Promise((resolve, reject) => {
                     pool.query(`SELECT * FROM ${tablename}`, (err, res) => {
                         let {rows} = res;
                         if (err) {
@@ -172,12 +175,19 @@ const scheduleWebScraper = (eventEmitter, pool) => {
                         resolve();
                     });
                 });
-                dataRetrievalPromise.then(() => {
-                    promiseResolveCount++; //each promise resolves once so we avoid a race condition this way
-                    if (promiseResolveCount === numPromises) {
-                        analyzeData(allData);
+                dataRetrievalPromise.then(
+                    //success callback 
+                    () => {
+                        promiseResolveCount++; 
+                        if (promiseResolveCount === numPromises) {
+                            analyzeData(allData);
+                        }
+                    }, 
+                    //error callback 
+                    (err) => {
+                        throw err; 
                     }
-                });
+                );
             });
         });
     });

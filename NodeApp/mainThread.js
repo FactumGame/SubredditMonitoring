@@ -8,7 +8,6 @@ THINGS TO FIX
 
 */
 
-
 const run = () => {
 
     //PROGRAM SETTINGS
