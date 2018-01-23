@@ -96,7 +96,7 @@ const scheduleWebScraper = (eventEmitter, pool) => {
             var growthRate = mostRecentDayGrowth / (1.0 * secondMostRecentDayGrowth);
 
             /* Only include data if growth yesterday wasn't zero and today's growth was greater than 10 */
-            if ((d[mp].count - d[sp].count) !== 0 && (d[ep].count - d[mp].count) > 10) {
+            if ((d[mp].count - d[sp].count) !== 0 && (d[ep].count - d[mp].count) > 30) {
                 subredditGrowthData.push({
                     "subreddit": subreddit,
                     "growthRate": growthRate,
