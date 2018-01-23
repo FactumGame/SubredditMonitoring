@@ -31,9 +31,6 @@ const scheduleWebScraper = (eventEmitter, pool) => {
     //callback function when we have extracted all data from the database
     const analyzeData = (data) => {
 
-        console.log(data); 
-        console.log('above'); 
-
         var subredditGrowthData = [],
             numCoinsReported    = 15; //we report the top numCoinsReportedDate coins and their growth data
 
@@ -97,12 +94,16 @@ const scheduleWebScraper = (eventEmitter, pool) => {
             }
             //If we have not yet returned at this point then we have valid intevals to calculate growth rate change
             var growthRate = mostRecentDayGrowth / (1.0 * secondMostRecentDayGrowth);
-            subredditGrowthData.push({
-                "subreddit": subreddit,
-                "growthRate": growthRate,
-                "growthToday": (d[ep].count - d[mp].count),
-                "growthYesterday": (d[mp].count - d[sp].count)
-            });
+
+            /* Only include data if growth yesterday wasn't zero and today's growth was greater than 10 */
+            if ((d[mp].count - d[sp].count) !== 0 && (d[ep].count - d[mp].count) > 10) {
+                subredditGrowthData.push({
+                    "subreddit": subreddit,
+                    "growthRate": growthRate,
+                    "growthToday": (d[ep].count - d[mp].count),
+                    "growthYesterday": (d[mp].count - d[sp].count)
+                });
+            }
         });
         var viableGrowthData = [];
         for (var i = 0; i < subredditGrowthData.length; i++) {
@@ -147,9 +148,7 @@ const scheduleWebScraper = (eventEmitter, pool) => {
 
     };
 
-    //Scheduled for 11pm EST
-    const sendTextAlertDaily = schedule.scheduleJob('0 0 23 * * *', () => {
-
+    const sendTextAlert = () => {
         var promiseResolveCount = 0,
             numPromises         = -1,
             allData             = [];
@@ -190,7 +189,15 @@ const scheduleWebScraper = (eventEmitter, pool) => {
                 );
             });
         });
-    });
+    }; 
+
+    textAlertTimes = ['0 0 11 * * *', '0 0 23 * * *']; 
+    textAlertTimes.forEach((time) => {
+        //Scheduled for 11am and 11pm EST
+        const sendTextAlertDaily = schedule.scheduleJob(time, () => {
+            sendTextAlert(); 
+        });
+    }); 
 
 };
 
