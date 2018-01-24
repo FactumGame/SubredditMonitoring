@@ -3,32 +3,134 @@ const _ = require('lodash');
 
 const setup = (app, pool) => {
 
+    const reduceDataOverGrowthInterval = (d, fractionOfDayInterval) => {
+        if (fractionOfDayInterval <= 0 || fractionOfDayInterval > 1) {
+            throw new Error("fraction of day interval must be GT 0 and LTE 1"); 
+        }
+        /*
+        Data in form of [
+            {'count': integer, 'date': integer}, 
+            {'count': integer, 'date': integer}, 
+            etc. 
+        ]
+        where the 'date' integer is the epoch 
+        */ 
+        let intervalLen = (24 * 60 * 60 * 1000 * 1.0) * fractionOfDayInterval, 
+            newData = []; 
+        //Start from end of data and work backwards. Find as many data points as 
+        //possible in a greedy fashion 
+        let ep = d.length - 1; 
+        for (let p = d.length - 2; p >= 0; p--) {
+            if (d[ep].date - d[p].date >= intervalLen) {
+                //found interval of valid len so make new data point and push to newData
+                newData.push({
+                    'date': d[ep].date, 
+                    'count': d[ep].count - d[p].count
+                }); 
+                ep = p;  
+            }
+        }
+        return newData.reverse(); 
+    };
+
+    
+
     app.get('/top_15_subreddits_by_growth/', (req, res) => {
+        /*
+        We select subreddits based on top rate of growth over the course of the last day. 
+        The data that we return to the user will be growth over intervals of 12 hours. 
+        */ 
 
         var subredditGrowthData = [];
 
         const rankData = (data) => {
-            dataChangeRateMap = {};
-            //Calculate percentage value of today's value relative to yesterday's value
+
+            let dataChangeRateMap = {};
             data.forEach((elem) => {
-                const d = elem.data,
-                    dLen = d.length,
-                    final = d[dLen-1],
-                    penult = d[dLen-2];
-                subredditGrowthData.push({
-                    "subreddit": elem.subreddit,
-                    "growthRate": final.count * penult.count === 0 ? 0: final.count / penult.count,
-                    "data": d
-                });
-            });
+                var subreddit   = elem.subreddit,
+                    d           = elem.data,
+                    dLen        = d.length,
+                    ep          = dLen - 1,
+                    mp          = dLen - 2,
+                    sp          = dLen - 3;
+    
+                //For each element's data we want to check if there are two day long intervals (two most recent days) that
+                //we can calculate a change in rate of subscriber growth over
+                if (dLen < 3) { //We need at least 3 data points to possibly have a valid intervals for analysis. return on less
+                    subredditGrowthData.push({
+                        "subreddit": subreddit,
+                        "growthRate": false //we check for this value later to signal a failure of sufficient analysis interval
+                    });
+                    return;
+                };
+                var mostRecentDayGrowth = false,
+                    secondMostRecentDayGrowth = false;
+                //first we probe for most recent day growth
+                while (mp > 0) {
+                    if ((d[ep].date - d[mp].date) / (24 * 60 * 60 * 1000 * 1.0) >= 1.0) {
+                        mostRecentDayGrowth = d[ep].count - d[mp].count;
+                        //set sp to new value. we start decrementing from this point, mp is minimally
+                        //1 if this if statement is triggered so sp always in range
+                        sp = mp - 1;
+                        break;
+                    }
+                    mp--;
+                }
+                //ensure we got our first data point
+                if (mostRecentDayGrowth === false) {
+                    //we failed to get our first data point so insufficient time interval
+                    subredditGrowthData.push({
+                        "subreddit": subreddit,
+                        "growthRate": false //we check for this value later to signal a failure of sufficient analysis interval
+                    });
+                    return;
+                }
+                //now we probe for the second most recent day growth
+                while (sp >= 0) {
+                    if ((d[mp].date - d[sp].date) / (24 * 60 * 60 * 1000 * 1.0) >= 1.0) {
+                        secondMostRecentDayGrowth = d[mp].count - d[sp].count;
+                        break;
+                    }
+                    sp--;
+                }
+                //ensure we got our second data point
+                if (secondMostRecentDayGrowth === false) {
+                    //we failed to get our second data point so insufficient time interval
+                    subredditGrowthData.push({
+                        "subreddit": subreddit,
+                        "growthRate": false //we check for this value later to signal a failure of sufficient analysis interval
+                    });
+                    return;
+                }
+                //If we have not yet returned at this point then we have valid intevals to calculate growth rate change
+                var growthRate = mostRecentDayGrowth / (1.0 * secondMostRecentDayGrowth);
+    
+                /* Only include data if growth yesterday wasn't zero and today's growth was greater than 10 */
+                if ((d[mp].count - d[sp].count) !== 0 && (d[ep].count - d[mp].count) > 30) {
+                    subredditGrowthData.push({
+                        "subreddit": subreddit,
+                        "growthRate": growthRate.toFixed(2), //round to 2 decimal places 
+                        "data": d
+                    });
+                }
+            }); 
+
             //push coins to top15GrowthSubreddits as long as they are greater than single element in the array
             subredditGrowthData = _.sortBy(subredditGrowthData, elem => elem.growthRate).reverse().splice(0,15);
+            
+            //reduce data over interval
+            for (let i = 0; i < subredditGrowthData.length; i++) {
+                let currData = subredditGrowthData[i].data;
+                subredditGrowthData[i].data = reduceDataOverGrowthInterval(currData, .5); 
+            }
+            
             subredditGrowthData = subredditGrowthData.map((elem) => {
                 return {
                     "name": elem.subreddit,
                     "data": elem.data
                 };
-            })
+            }); 
+            //We have determined the top growing subreddits
             res.send({
                 "subredditData": subredditGrowthData
             });
@@ -76,27 +178,28 @@ const setup = (app, pool) => {
 
     });
 
-    app.get('/add_two_day_old_data_filler/', (req, res) => {
-        pool.query('SELECT * FROM subreddits', (err, response) => {
-            let {rows}      = response,
-                tableNames  = rows.map((elem) => { return elem.tablename; }),
-                mostRecentDate;
-            pool.query(`SELECT * FROM ${tableNames[0]}`, (err, r) => {
-                let {rows} = r,
-                    mostRecentDate = parseInt(rows[rows.length - 1].date),
-                    firstIns = mostRecentDate + 86400000, //num milliseconds in a day 
-                    secondIns = mostRecentDate + 2 * 86400000;
-                tableNames.forEach((tn) => {
-                    pool.query(`INSERT INTO ${tn} VALUES ($1,$2),($3,$4)`, [firstIns, 1, secondIns, 2], (err, response) => {
-                        if (err) {
-                            console.log(err);
-                            throw err;
-                        }
-                    })
-                });
-            });
-        })
-    });
+    // FOR DEVELOPMENT PURPOSES 
+    // app.get('/add_two_day_old_data_filler/', (req, res) => {
+    //     pool.query('SELECT * FROM subreddits', (err, response) => {
+    //         let {rows}      = response,
+    //             tableNames  = rows.map((elem) => { return elem.tablename; }),
+    //             mostRecentDate;
+    //         pool.query(`SELECT * FROM ${tableNames[0]}`, (err, r) => {
+    //             let {rows} = r,
+    //                 mostRecentDate = parseInt(rows[rows.length - 1].date),
+    //                 firstIns = mostRecentDate + 86400000, //num milliseconds in a day 
+    //                 secondIns = mostRecentDate + 2 * 86400000;
+    //             tableNames.forEach((tn) => {
+    //                 pool.query(`INSERT INTO ${tn} VALUES ($1,$2),($3,$4)`, [firstIns, 1, secondIns, 2], (err, response) => {
+    //                     if (err) {
+    //                         console.log(err);
+    //                         throw err;
+    //                     }
+    //                 })
+    //             });
+    //         });
+    //     })
+    // });
 
     //GET all subreddit names
     app.get('/subreddit_names/', (req, res) => {
@@ -141,8 +244,8 @@ const setup = (app, pool) => {
                     } else {
                         res.send({
                             "subreddit": req.params.name,
-                            "data": innerRows.rows
-                        })
+                            "data": reduceDataOverGrowthInterval(innerRows.rows, .5)
+                        }); 
                     }
                 });
             }
