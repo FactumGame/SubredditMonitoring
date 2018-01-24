@@ -3,6 +3,79 @@ const _ = require('lodash');
 
 const setup = (app, pool) => {
 
+    app.get('/top_15_subreddits_by_growth/', (req, res) => {
+
+        var subredditGrowthData = [];
+
+        const rankData = (data) => {
+            dataChangeRateMap = {};
+            //Calculate percentage value of today's value relative to yesterday's value
+            data.forEach((elem) => {
+                const d = elem.data,
+                    dLen = d.length,
+                    final = d[dLen-1],
+                    penult = d[dLen-2];
+                subredditGrowthData.push({
+                    "subreddit": elem.subreddit,
+                    "growthRate": final.count * penult.count === 0 ? 0: final.count / penult.count,
+                    "data": d
+                });
+            });
+            //push coins to top15GrowthSubreddits as long as they are greater than single element in the array
+            subredditGrowthData = _.sortBy(subredditGrowthData, elem => elem.growthRate).reverse().splice(0,15);
+            subredditGrowthData = subredditGrowthData.map((elem) => {
+                return {
+                    "name": elem.subreddit,
+                    "data": elem.data
+                };
+            })
+            res.send({
+                "subredditData": subredditGrowthData
+            });
+        };
+
+        pool.query('SELECT * FROM Subreddits', [], (err, response) => {
+            if (err) {
+                res.send({
+                    "error": err
+                });
+            } else {
+                let {rows} = response; 
+                var subredditTableNames = rows.map((elem) => { return elem.tablename; }), 
+                    tnSubredditMap = rows.reduce((accumulator, curr) => {
+                        accumulator[curr.tablename] = curr.pkey; 
+                        return accumulator; 
+                    }, {}); 
+                async.map(subredditTableNames,
+                    (tableName, done) => {
+                        pool.query(`SELECT * FROM ${tableName}`, [], (err, response) => {
+                            if (err) {
+                                console.log("error when extracting one of the top 15 subreddits from the database");
+                                throw err;
+                            } else {
+                                let {rows} = response; 
+                                done(null, {
+                                    'subreddit': tnSubredditMap[tableName],
+                                    'data': rows
+                                });
+                            }
+                        });
+                    },
+                    (err, results) => {
+                        if (err) {
+                            console.log("error when extracting top 15 subreddits from their respective databases");
+                            throw err;
+                        } else {
+                            rankData(results);
+                        }
+                    }
+            );
+
+            }
+        });
+
+    });
+
     app.get('/add_two_day_old_data_filler/', (req, res) => {
         pool.query('SELECT * FROM subreddits', (err, response) => {
             let {rows}      = response,

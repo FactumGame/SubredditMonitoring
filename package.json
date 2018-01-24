@@ -12,26 +12,35 @@
     "cheerio": "^0.22.0",
     "events": "1.1.1",
     "express": "^4.15.4",
+    "grunt-cli": "^1.2.0",
     "js-combinatorics": "^0.5.3",
     "jsonic": "^0.3.0",
-    "nexmo": "^2.1.1",
+    "nexmo": "^2.2.0",
     "node-schedule": "^1.2.5",
-    "node-schedule-tz": "^1.2.1-4",
     "pg": "^7.4.1",
     "pug": "^2.0.0-rc.4",
     "request": "^2.83.0",
-    "sqlite3": "^3.1.12"
+    "should": "^13.1.0",
+    "uglify-js": "^3.3.4"
   },
   "scripts": {
     "start": "node index.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/brycemorrow4564/SubredditMonitoring.git"
+    "url": "git+https://github.com/brycemorrow4564/CryptoAnalysis.git"
   },
   "author": "Bryce Morrow",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/brycemorrow4564/SubredditMonitoring/issues"
+    "url": "https://github.com/brycemorrow4564/CryptoAnalysis/issues"
+  },
+  "homepage": "https://github.com/brycemorrow4564/CryptoAnalysis#readme",
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-openui5": "^0.12.0",
+    "grunt-contrib-jshint": "~0.10.0",
+    "grunt-contrib-nodeunit": "~0.4.1",
+    "grunt-contrib-uglify": "~0.5.0"
   }
 }

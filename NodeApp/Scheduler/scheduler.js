@@ -99,7 +99,7 @@ const scheduleWebScraper = (eventEmitter, pool) => {
             if ((d[mp].count - d[sp].count) !== 0 && (d[ep].count - d[mp].count) > 30) {
                 subredditGrowthData.push({
                     "subreddit": subreddit,
-                    "growthRate": growthRate,
+                    "growthRate": growthRate.toFixed(2), //round to 2 decimal places 
                     "growthToday": (d[ep].count - d[mp].count),
                     "growthYesterday": (d[mp].count - d[sp].count)
                 });
