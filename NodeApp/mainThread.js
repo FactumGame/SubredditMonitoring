@@ -10,13 +10,10 @@ THINGS TO FIX
 
 const run = () => {
 
-    process.env.NEXMO_API_KEY = "a0ad32ba"; 
-    process.env.NEXMO_API_SECRET = "ca088a5344124a7K"; 
-
     //PROGRAM SETTINGS
     //Set all to false on deployment
     let FROM_SCRATCH_MODE_ENABLED  = false,
-        LOCAL_RUN                  = true,
+        LOCAL_RUN                  = false,
         RUN_SCRAPER_ON_STARTUP     = false;
 
     //Run Server Setup bind to port
