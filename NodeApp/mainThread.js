@@ -14,7 +14,8 @@ const run = () => {
     //Set all to false on deployment
     let FROM_SCRATCH_MODE_ENABLED  = false,
         LOCAL_RUN                  = false,
-        RUN_SCRAPER_ON_STARTUP     = false;
+        RUN_SCRAPER_ON_STARTUP     = false,
+        CLEAN_DB_ON_STARTUP        = true;
 
     //Run Server Setup bind to port
     const server = require('./ExpressServer/server');
@@ -26,7 +27,7 @@ const run = () => {
 
     //Setup Database
     const dbModule = require('./Database/database');
-    const pool = dbModule.setup(FROM_SCRATCH_MODE_ENABLED, eventEmitter, LOCAL_RUN);
+    const pool = dbModule.setup(FROM_SCRATCH_MODE_ENABLED, eventEmitter, LOCAL_RUN, CLEAN_DB_ON_STARTUP);
 
     //Setup and Run Data Scrapers
     const scraperModule = require('./WebScraper/webscraper');

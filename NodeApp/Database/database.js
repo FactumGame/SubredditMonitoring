@@ -25,7 +25,30 @@ const enterData = (data, dataSource) => {
     dbKeyMapper.run(data, dataSource);
 };
 
-const setup = (fromScratchModeEnabled, eventEmitterRef, LOCAL_RUN) => {
+const cleanDatabase = () => {
+    let numDaysForRelevantData = 3;
+    pool.query(`SELECT * FROM Subreddits`, [], (err, response) => {
+        if (err) { console.log(err); }
+        let {rows} = response;
+        let tablenames = rows.reduce((accumulator, curr) => {
+            accumulator.push(curr.tablename);
+            return accumulator;
+        }, []);
+        tablenames = tablenames.sort();
+        tablenames.forEach((tablename) => {
+            pool.query(`SELECT * FROM ${tablename}`, [], (err, response) => {
+                let {rows} = response;
+                let mostRecentTime = parseInt(rows[0].date);
+                let cutoffTime = mostRecentTime - numDaysForRelevantData * (24 * 60 * 60 * 1000 * 1.0);
+                pool.query(`DELETE FROM ${tablename} WHERE date < ${cutoffTime}`, [], (err, response) => {
+                    console.log(response);
+                });
+            });
+        });
+    });
+};
+
+const setup = (fromScratchModeEnabled, eventEmitterRef, LOCAL_RUN, CLEAN_DB_ON_STARTUP) => {
 
     eventEmitter = eventEmitterRef;
     //Opening the postgreSQL database
@@ -87,10 +110,15 @@ const setup = (fromScratchModeEnabled, eventEmitterRef, LOCAL_RUN) => {
         pool.query(`CREATE TABLE IF NOT EXISTS Subreddits ${subredditsSchema}`);
     }
 
+    if (CLEAN_DB_ON_STARTUP) {
+        cleanDatabase();
+    }
+
     return pool;
 };
 
 module.exports = {
     "setup": setup,
-    "enterData": enterData
+    "enterData": enterData,
+    "cleanDatabase": cleanDatabase
 };
