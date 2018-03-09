@@ -29,7 +29,7 @@ const max = (a,b) => {return a > b ? a : b; }
 
 const cleanDatabase = () => {
     console.log("CLEANING THE DATABASE");
-    let numDaysForRelevantData = 3;
+    let numDaysForRelevantData = 2.5;
     pool.query(`SELECT * FROM Subreddits`, [], (err, response) => {
         if (err) { console.log(err); }
         let {rows} = response;
