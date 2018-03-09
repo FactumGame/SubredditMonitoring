@@ -25,7 +25,10 @@ const enterData = (data, dataSource) => {
     dbKeyMapper.run(data, dataSource);
 };
 
+const min = (a,b) => {return a < b ? a : b; }
+
 const cleanDatabase = () => {
+    console.log("CLEANING THE DATABASE");
     let numDaysForRelevantData = 3;
     pool.query(`SELECT * FROM Subreddits`, [], (err, response) => {
         if (err) { console.log(err); }
@@ -38,7 +41,9 @@ const cleanDatabase = () => {
         tablenames.forEach((tablename) => {
             pool.query(`SELECT * FROM ${tablename}`, [], (err, response) => {
                 let {rows} = response;
-                let mostRecentTime = parseInt(rows[0].date);
+                let mostRecentTime = min(parseInt(rows[0].date), parseInt(rows[rows.length-1].date));
+                console.log("Most recent time");
+                console.log(mostRecentTime);
                 let cutoffTime = mostRecentTime - numDaysForRelevantData * (24 * 60 * 60 * 1000 * 1.0);
                 pool.query(`DELETE FROM ${tablename} WHERE date < ${cutoffTime}`, [], (err, response) => {
                     console.log(response);
