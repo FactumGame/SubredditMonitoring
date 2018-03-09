@@ -7,16 +7,14 @@ const scheduleWebScraper = (eventEmitter, pool) => {
           Nexmo             = require('nexmo'),
           rmScraper         = scraperModule.getScraper("redditmetrics"),
           nexmo             = new Nexmo({
-            /* apiKey: process.env.NEXMO_API_KEY,
-            apiSecret: process.env.NEXMO_API_SECRET */
-            apiKey: "a0ad32ba",
-            apiSecret: "ca088a5344124a7K"
+            apiKey: process.env.NEXMO_API_KEY,
+            apiSecret: process.env.NEXMO_API_SECRET
           }),
-          halfHourlyRule    = new schedule.RecurrenceRule();
-          atMidnightRule    = new schedule.RecurrenceRule();
+          halfHourlyRule        = new schedule.RecurrenceRule();
+          atFortyFiveMinRule    = new schedule.RecurrenceRule();
 
     halfHourlyRule.minute = 30; //run at the 30 minute mark on each hour
-    atMidnightRule.hour = 0;
+    atFortyFiveMinRule.minute = 45;
 
     //SCRIPT SCHEDULED TO RUN AT 11:00 PM each day to update with new data
     schedule.scheduleJob(halfHourlyRule, () => {
@@ -24,7 +22,7 @@ const scheduleWebScraper = (eventEmitter, pool) => {
         rmScraper.run();
     });
 
-    schedule.scheduleJob(atMidnightRule, () => {
+    schedule.scheduleJob(atFortyFiveMinRule, () => {
         databaseModule.cleanDatabase();
     });
 

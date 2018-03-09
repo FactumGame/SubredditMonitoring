@@ -14,7 +14,7 @@ const run = () => {
     //Set all to false on deployment
     let FROM_SCRATCH_MODE_ENABLED  = false,
         LOCAL_RUN                  = false,
-        RUN_SCRAPER_ON_STARTUP     = false,
+        RUN_SCRAPER_ON_STARTUP     = true,
         CLEAN_DB_ON_STARTUP        = true;
 
     //Run Server Setup bind to port
